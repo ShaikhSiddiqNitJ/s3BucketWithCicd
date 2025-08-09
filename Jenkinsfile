@@ -1,65 +1,45 @@
 pipeline {
-  agent any
+    agent any
 
-  environment {
-    NODE_VERSION = '22'
-    AWS_DEFAULT_REGION = credentials('aws-default-region')
-    AWS_ACCESS_KEY_ID = credentials('aws-access-key-id')
-    AWS_SECRET_ACCESS_KEY = credentials('aws-secret-access-key')
-    S3_BUCKET = credentials('s3-static-site-bucket')
-  }
-
-  options {
-    timestamps()
-    ansiColor('xterm')
-  }
-
-  stages {
-    stage('Checkout') {
-      steps {
-        checkout scm
-      }
+    environment {
+        AWS_REGION = 'us-east-1'
+        S3_BUCKET = 'siddiq-shaikh-123-ab'
     }
 
-    stage('Setup Node') {
-      steps {
-        sh 'node -v || true'
-        sh 'npm -v || true'
-      }
-    }
-
-    stage('Install') {
-      steps {
-        sh 'npm ci || npm install'
-      }
-    }
-
-    stage('Build') {
-      steps {
-        sh 'npm run build'
-      }
-      post {
-        always {
-          archiveArtifacts artifacts: 'dist/**', fingerprint: true, allowEmptyArchive: true
+    stages {
+        stage('Checkout') {
+            steps {
+                git branch: 'main', url: 'https://github.com/ShaikhSiddiqNitJ/s3BucketWithCicd.git'
+            }
         }
-      }
+
+        stage('Install Dependencies') {
+            steps {
+                sh 'npm install'
+            }
+        }
+
+        stage('Build React App') {
+            steps {
+                sh 'npm run build'
+            }
+        }
+
+        stage('Deploy to S3') {
+            steps {
+                sh '''
+                    aws s3 sync dist/ s3://$S3_BUCKET --delete --region $AWS_REGION
+                '''
+            }
+        }
     }
 
-    stage('Deploy to S3') {
-      when { branch 'main' }
-      steps {
-        sh 'chmod +x scripts/deploy-s3.sh'
-        sh 'AWS_REGION=$AWS_DEFAULT_REGION S3_BUCKET=$S3_BUCKET npm run deploy:s3'
-      }
+    post {
+        success {
+            echo "✅ Deployment successful! URL: http://$S3_BUCKET.s3-website-$AWS_REGION.amazonaws.com"
+        }
+        failure {
+            echo "❌ Deployment failed!"
+        }
     }
-  }
-
-  post {
-    failure {
-      echo 'Pipeline failed.'
-    }
-    success {
-      echo 'Build and deploy succeeded.'
-    }
-  }
-} 
+}
