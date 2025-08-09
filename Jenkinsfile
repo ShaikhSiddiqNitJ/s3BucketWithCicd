@@ -19,7 +19,7 @@ pipeline {
             }
         }
 
-        stage('Build React App') {
+        stage('Build Vite App') {  // naam bas clarity ke liye
             steps {
                 sh 'npm run build'
             }
